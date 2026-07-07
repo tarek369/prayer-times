@@ -2,7 +2,7 @@
  * Shared storage bridge for the iOS widget.
  *
  * The iOS WidgetKit widget reads today's snapshot from UserDefaults in the App Group
- * "group.org.eestiislam.prayer". Writing to an App Group requires a native call (JS has
+ * "group.org.eestiislam.prayerestonia". Writing to an App Group requires a native call (JS has
  * no direct access), so we lazily load react-native-mmkv (App-Group-aware) when present.
  *
  * If MMKV is not configured, this is a graceful no-op: the widget falls back to its
@@ -12,7 +12,7 @@
 import { Platform } from "react-native";
 import { buildWidgetData } from "./widget-data";
 
-const APP_GROUP = "group.org.eestiislam.prayer";
+const APP_GROUP = "group.org.eestiislam.prayerestonia";
 const KEY = "prayerWidgetSnapshot";
 
 let mmkvInstance: { set: (value: string, key: string) => void } | null | undefined;

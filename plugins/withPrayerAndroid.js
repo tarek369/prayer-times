@@ -1,5 +1,5 @@
 /**
- * Expo config plugin for Prayer Times.
+ * Expo config plugin for Prayer Estonia.
  *
  * Responsibilities:
  *  - Registers the Android "RingerSilencer" native module (auto-silence at adhan)
@@ -13,7 +13,7 @@ const { withDangerousMod, withMainApplication } = require("expo/config-plugins")
 const fs = require("fs");
 const path = require("path");
 
-const MODULE_PACKAGE = "org.eestiislam.prayer";
+const MODULE_PACKAGE = "org.eestiislam.prayerestonia";
 
 function copyNativeModule(androidProjectRoot) {
   const srcDir = path.join(__dirname, "..", "modules", "silence", "android");

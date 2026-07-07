@@ -63,7 +63,7 @@ export default function TodayScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <T variant="section">Prayer Times</T>
+            <T variant="section">Prayer Estonia</T>
             <T variant="title">{city.label}</T>
             <T variant="caption">{gregText}</T>
             {hijriText ? <T variant="caption" color={colors.accent}>{hijriText}</T> : null}

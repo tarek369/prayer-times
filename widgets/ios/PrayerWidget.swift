@@ -9,14 +9,14 @@
 //  Integration (one-time, after `expo prebuild`):
 //    1. In Xcode: File ▸ New ▸ Target ▸ Widget Extension → name "PrayerWidget".
 //    2. Replace the generated PrayerWidget.swift with this file.
-//    3. Enable the "PrayerWidget" target's App Group: group.org.eestiislam.prayer.
+//    3. Enable the "PrayerWidget" target's App Group: group.org.eestiislam.prayerestonia.
 //    4. Build & run.
 //
 
 import WidgetKit
 import SwiftUI
 
-private let appGroup = "group.org.eestiislam.prayer"
+private let appGroup = "group.org.eestiislam.prayerestonia"
 
 struct PrayerSnapshot: Codable {
     var cityLabel: String

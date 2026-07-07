@@ -1,4 +1,4 @@
-# Prayer Times
+# Prayer Estonia
 
 A cross-platform (Android + iOS) prayer-times app built with **Expo** (React Native +
 TypeScript). The default calculation method is the **Estonia (Tallinn / Tartu)** method
@@ -87,7 +87,7 @@ After `npx expo prebuild`:
 2. **File ▸ New ▸ Target ▸ Widget Extension** → name it `PrayerWidget`.
 3. Replace the generated `PrayerWidget.swift` with
    [`widgets/ios/PrayerWidget.swift`](widgets/ios/PrayerWidget.swift).
-4. Enable the **App Group** `group.org.eestiislam.prayer` on both the main app and the
+4. Enable the **App Group** `group.org.eestiislam.prayerestonia` on both the main app and the
    widget target (the `withIosWidget` config plugin adds it to the app target).
 5. Install `react-native-mmkv` so the JS side can write the shared snapshot:
    `npx expo install react-native-mmkv`, then re-run `npx expo prebuild`.

@@ -1,4 +1,4 @@
-package org.eestiislam.prayer
+package org.eestiislam.prayerestonia
 
 import android.content.Context
 import android.app.NotificationManager

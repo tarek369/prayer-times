@@ -19,7 +19,7 @@
 
 const { withEntitlementsPlist, withInfoPlist } = require("expo/config-plugins");
 
-const APP_GROUP = "group.org.eestiislam.prayer";
+const APP_GROUP = "group.org.eestiislam.prayerestonia";
 
 /** Ensure the main app target has an App Group + Keychain sharing capability. */
 function withAppGroup(config) {

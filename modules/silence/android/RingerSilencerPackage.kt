@@ -1,4 +1,4 @@
-package org.eestiislam.prayer
+package org.eestiislam.prayerestonia
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
