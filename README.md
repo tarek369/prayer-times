@@ -1,56 +1,119 @@
-# Welcome to your Expo app 👋
+# Prayer Times
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A cross-platform (Android + iOS) prayer-times app built with **Expo** (React Native +
+TypeScript). The default calculation method is the **Estonia (Tallinn / Tartu)** method
+from [eestiislamikeskus.org](https://eestiislamikeskus.org/): a custom high-latitude rule
+using 15° angles for Fajr/Isha with a night-portion guard, and **per-month Isha rules**
+(summer = Maghrib + 90 minutes). Every default is user-overridable.
 
-## Get started
+The astronomical engine is a **bit-for-bit TypeScript port** of the website's `app.js`,
+verified against the published timetable with 198 unit tests (`__tests__/engine.test.ts`).
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **Today** screen — Hijri + Gregorian date, live next-prayer countdown, all five times
+  + sunrise, rule badges (e.g. "summer: Maghrib + 90").
+- **Month** screen — the full monthly timetable with city/month/year navigation,
+  today highlighted, and extreme-time (high-latitude) markers.
+- **Settings** — change city (Tallinn / Tartu / **Use my GPS location**), override the
+  method (angles, asr factor 1=Shafi / 2=Hanafi, offsets), toggle per-month Isha rules,
+  per-prayer notification toggles, optional pre-adhan reminder, theme (system/light/dark),
+  12h/24h clock, and a **Reset to defaults** button.
+- **Notifications** — local scheduled notifications for each prayer, per-prayer enable,
+  optional reminder N minutes before, sound toggle. Reschedules automatically on settings
+  change and via a background fetch (day rollover).
+- **Android auto-silence** — at adhan, the ringer switches to vibrate/silent and restores
+  after a configurable delay. Requires Do-Not-Disturb access.
+- **Home-screen widgets** — Android "Next Prayer" widget + iOS WidgetKit widget.
 
-2. Start the app
+## Platform limitations (honest)
 
-   ```bash
-   npx expo start
-   ```
+These are **OS-level restrictions**, not app bugs:
 
-In the output, you'll find options to open the app in a
+- **iOS cannot silence the ringer.** No iOS app can change the ringer mode. iOS users get
+  rich notifications and an optional **Do-Not-Disturb Focus** (enable once via Settings ▸
+  Focus). Full automatic silence is Android-only.
+- **Widgets require native code.** The Android widget is built and wired automatically via
+  `react-native-android-widget`. The iOS widget requires a one-time WidgetKit target in
+  Xcode (see below).
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Getting started
 
 ```bash
-npm run reset-project
+npm install
+npm test            # 198 engine-parity tests
+npx tsc --noEmit    # type-check
+
+# Dev
+npm run android
+npm run ios
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+To build for release / use native features (notifications, widget, auto-silence), generate
+the native projects once:
 
-### Other setup steps
+```bash
+npx expo prebuild
+# then:
+npm run android   # or open ios/*.xcworkspace in Xcode
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Configuration & defaults
 
-## Learn more
+All defaults live in [`src/engine/config.ts`](src/engine/config.ts) and
+[`src/store/settings.ts`](src/store/settings.ts):
 
-To learn more about developing your project with Expo, look at the following resources:
+| Setting | Default | Where to change |
+|---|---|---|
+| City | Tallinn, Estonia | Settings ▸ Location |
+| Fajr / Isha angles | 15° / 15° | Settings ▸ Calculation method |
+| Asr factor | 1 (Shafi) | Settings ▸ Calculation method |
+| Isha summer rule | Maghrib + 90 min (May–Aug) | Settings ▸ Isha rules by month |
+| Notifications | On, all prayers, sound | Settings ▸ Notifications |
+| Theme | System | Settings ▸ Appearance |
+| Auto-silence (Android) | Off | Settings ▸ Auto-silence at prayer |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Extending the Isha month rules
 
-## Join the community
+In Settings ▸ "Isha rules by month", tap any month to toggle between the **15° angle** and
+the **"Maghrib + 90 min"** summer rule. This mirrors the `ISHA_MONTH_RULES` table from the
+website and lets you adapt the method if your local mosque approves a different value.
 
-Join our community of developers creating universal apps.
+## iOS WidgetKit integration (one-time)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+After `npx expo prebuild`:
+
+1. Open `ios/*.xcworkspace` in Xcode.
+2. **File ▸ New ▸ Target ▸ Widget Extension** → name it `PrayerWidget`.
+3. Replace the generated `PrayerWidget.swift` with
+   [`widgets/ios/PrayerWidget.swift`](widgets/ios/PrayerWidget.swift).
+4. Enable the **App Group** `group.org.eestiislam.prayer` on both the main app and the
+   widget target (the `withIosWidget` config plugin adds it to the app target).
+5. Install `react-native-mmkv` so the JS side can write the shared snapshot:
+   `npx expo install react-native-mmkv`, then re-run `npx expo prebuild`.
+
+The widget reads today's snapshot from the shared App Group `UserDefaults`.
+
+## Project structure
+
+```
+src/
+  engine/          # Astronomical engine (ported from app.js, 198 tests)
+  store/           # zustand settings (Estonia defaults, persisted)
+  app/             # expo-router screens: index (Today), month, settings
+  components/      # primitives, native tab bar
+  hooks/           # prayer data, theme, notifications gateway
+  notifications/   # scheduling + Android ringer-silence bridge
+  widgets/         # Android widget component + task; iOS shared storage
+plugins/
+  withPrayerAndroid.js   # wires Android silence module
+  withIosWidget.js       # App Group + WidgetKit entitlements
+modules/silence/android/ # Kotlin ringer-silence native module
+widgets/ios/             # Swift WidgetKit widget
+__tests__/               # engine parity tests + ground truth fixtures
+```
+
+## Credits
+
+Calculation method and defaults: [Estonian Islamic Centre](https://eestiislamikeskus.org/).
+Engine ported with permission-equivalent fidelity for personal/community use.
