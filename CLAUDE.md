@@ -100,7 +100,7 @@ side effects. It must remain unit-testable in plain Node. UI code consumes it vi
 | slug | `prayer-estonia` |
 | scheme (deep link) | `prayerestonia` |
 | iOS App Group | `group.org.eestiislam.prayerestonia` |
-| Version | 1.1.0 |
+| Version | 1.2.0 |
 
 Changing the package requires updating **all** of: `app.json`, the Kotlin `package`
 declarations in `modules/silence/android/*.kt`, `MODULE_PACKAGE` in
@@ -238,6 +238,19 @@ These are **OS-level restrictions**, not bugs. Do not claim they can be worked a
   module, both config plugins, widget click actions, iOS App Group, README. Built
   signed release v1.1.0, installed on OnePlus tablet (Play Protect → "Don't send"),
   pushed to GitHub, published release.
+- **2026-07-31** — **Celestial design overhaul.** Replaced the generic flat UI with a
+  distinctive, modern design language built on three signature ideas:
+  (1) **time-of-day adaptive palette** — the whole color world shifts with the active
+  prayer period (`src/theme/palettes.ts`, 6 period palettes: Fajr indigo, Sunrise
+  rose/gold, Dhuhr sky blue, Asr amber, Maghrib magenta, Isha navy);
+  (2) **animated countdown ring** (`src/components/countdown-ring.tsx`, SVG +
+  reanimated, arc fills toward next prayer);
+  (3) **sky arc** (`src/components/sky-arc.tsx`, shows the sun's journey across the
+  day with prayer markers + live sun position).
+  Added bespoke SVG prayer icons + crescent brand mark (`src/components/icons.tsx`),
+  glassmorphic cards, starfield for night periods. Rebuilt Today/Month/Settings.
+  Added `react-native-svg` + `expo-linear-gradient`. Verified on emulator (Asr period
+  renders correctly, no JS errors), 198 tests still green.
 
 ### 9.2 Known gotchas (read before touching these areas)
 - **Widget files need `"use no memo"`** as line 1 — React Compiler + react-native-android-widget conflict.
