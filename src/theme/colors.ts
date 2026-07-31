@@ -1,7 +1,11 @@
 /**
- * App theme. Accent green mirrors the Estonian Islamic Centre branding.
- * Supports light/dark; system preference is the default.
+ * Theme colors. These now map the celestial design system (see palettes.ts) onto the
+ * flat ThemeColors shape that the older primitives/components consume. The "neutral"
+ * celestial palette is used as the base; light/dark is honored for components that
+ * still key off the old light/dark distinction.
  */
+
+import { PERIOD_PALETTES } from "./palettes";
 
 export interface ThemeColors {
   bg: string;
@@ -21,40 +25,29 @@ export interface ThemeColors {
   prayerActiveBg: string;
 }
 
-export const accent = "#1f8a4c";
+export const accent = "#3ec97a";
+
+// The celestial neutral palette drives the base look for non-time-aware screens.
+const N = PERIOD_PALETTES.neutral;
 
 export const light: ThemeColors = {
-  bg: "#f6f7f5",
-  surface: "#ffffff",
-  surfaceAlt: "#f0f2ef",
-  card: "#ffffff",
-  text: "#14241b",
-  textMuted: "#5b6b62",
-  textInvert: "#ffffff",
-  border: "#e2e6e1",
-  accent,
-  accentSoft: "#e4f3ea",
-  danger: "#c0392b",
-  warning: "#b9770e",
-  highlight: "#fff7d6",
-  headerText: "#0f1a14",
-  prayerActiveBg: "#e4f3ea",
+  bg: N.sky[0],
+  surface: N.glassSurface,
+  surfaceAlt: "rgba(255,255,255,0.05)",
+  card: N.glassSurface,
+  text: N.onSky,
+  textMuted: N.onSkyMuted,
+  textInvert: N.sky[0],
+  border: N.glassBorder,
+  accent: N.accent,
+  accentSoft: N.accentSoft,
+  danger: "#f87171",
+  warning: "#fbbf24",
+  highlight: N.accentSoft,
+  headerText: N.onSky,
+  prayerActiveBg: N.accentSoft,
 };
 
 export const dark: ThemeColors = {
-  bg: "#0e1410",
-  surface: "#161e18",
-  surfaceAlt: "#1c261f",
-  card: "#19211b",
-  text: "#eaf2ec",
-  textMuted: "#9aa9a0",
-  textInvert: "#0e1410",
-  border: "#26302a",
-  accent: "#3ec97a",
-  accentSoft: "#16331f",
-  danger: "#e57373",
-  warning: "#e0a33b",
-  highlight: "#3a3117",
-  headerText: "#eaf2ec",
-  prayerActiveBg: "#16331f",
+  ...light,
 };

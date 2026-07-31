@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 
-import { Card, Screen, T } from "@/components/primitives";
-import { useMonthTimetable } from "@/hooks/use-prayer-data";
-import { useResolvedCity } from "@/hooks/use-prayer-data";
-import { useTheme } from "@/hooks/use-theme";
+import { GlassCard } from "@/components/glass-card";
+import { CrescentMark } from "@/components/icons";
+import { useMonthTimetable, useResolvedCity } from "@/hooks/use-prayer-data";
 import { MONTHS, CITIES } from "@/engine";
 import { useSettings } from "@/store/settings";
+import { PERIOD_PALETTES } from "@/theme/palettes";
 
 const PRAYER_COLS = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 const COL_LABELS: Record<string, string> = {
@@ -20,13 +21,12 @@ const COL_LABELS: Record<string, string> = {
 };
 
 export default function MonthScreen() {
+  const palette = PERIOD_PALETTES.neutral;
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1); // 1..12
+  const [month, setMonth] = useState(today.getMonth() + 1);
   const { city } = useResolvedCity();
   const timetable = useMonthTimetable(year, month);
-  const colors = useTheme();
-
   const isCustom = useSettings((s) => s.location.mode === "custom");
 
   const todayDay = today.getFullYear() === year && today.getMonth() + 1 === month ? today.getDate() : -1;
@@ -43,132 +43,159 @@ export default function MonthScreen() {
   }
 
   return (
-    <Screen>
+    <View style={{ flex: 1, backgroundColor: palette.sky[0] }}>
+      <LinearGradient colors={palette.sky} style={StyleSheet.absoluteFill} />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <View style={styles.header}>
-          <T variant="section">Monthly Timetable</T>
-          <T variant="title" align="center" style={{ marginTop: 2 }}>{city.label}</T>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <CrescentMark size={16} color={palette.accent} />
+              <Text style={[styles.kicker, { color: palette.onSkyMuted }]}>MONTHLY TIMETABLE</Text>
+            </View>
+            <Text style={[styles.city, { color: palette.onSky }]}>{city.label}</Text>
 
-          {/* Month navigation */}
-          <View style={[styles.navRow, { borderColor: colors.border }]}>
-            <Pressable onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
-              <T variant="mono" color={colors.accent}>‹</T>
-            </Pressable>
-            <Pressable onPress={jumpToday} hitSlop={8}>
-              <T variant="body" color={colors.accent}>{MONTHS[month - 1]} {year}</T>
-            </Pressable>
-            <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
-              <T variant="mono" color={colors.accent}>›</T>
-            </Pressable>
+            <View style={[styles.navRow, { borderColor: palette.glassBorder }]}>
+              <Pressable onPress={prevMonth} hitSlop={12}>
+                <Text style={[styles.navArrow, { color: palette.accent }]}>‹</Text>
+              </Pressable>
+              <Pressable onPress={jumpToday} hitSlop={8}>
+                <Text style={[styles.navTitle, { color: palette.accent }]}>
+                  {MONTHS[month - 1]} {year}
+                </Text>
+              </Pressable>
+              <Pressable onPress={nextMonth} hitSlop={12}>
+                <Text style={[styles.navArrow, { color: palette.accent }]}>›</Text>
+              </Pressable>
+            </View>
+
+            {timetable.hijriRange ? (
+              <Text style={[styles.hijri, { color: palette.onSkyMuted }]}>{timetable.hijriRange} AH</Text>
+            ) : null}
           </View>
 
-          {timetable.hijriRange ? (
-            <T variant="caption" align="center">{timetable.hijriRange} AH</T>
-          ) : null}
-        </View>
+          {/* Timetable card */}
+          <GlassCard palette={palette} style={{ marginTop: 16, padding: 0 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ minWidth: 420 }}>
+                {/* Header row */}
+                <View style={[styles.thead, { borderBottomColor: palette.glassBorder }]}>
+                  <Text style={[styles.cellDayHead, { color: palette.onSkyMuted }]}>Day</Text>
+                  <Text style={[styles.cellWdHead, { color: palette.onSkyMuted }]}>·</Text>
+                  {PRAYER_COLS.map((c) => (
+                    <Text key={c} style={[styles.cellHead, { color: palette.onSkyMuted }]}>
+                      {COL_LABELS[c]}
+                    </Text>
+                  ))}
+                </View>
 
-        <View style={{ paddingHorizontal: 8, flex: 1 }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ minWidth: "100%" }}>
-              <View style={{ height: 40 }}>
-                <ScrollView>
-                  {/* Header row */}
-                  <View style={[styles.thead, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-                    <T variant="caption" style={styles.cellDayHead}>Day</T>
-                    <T variant="caption" style={styles.cellWdHead}>·</T>
-                    {PRAYER_COLS.map((c) => (
-                      <T key={c} variant="caption" style={styles.cellHead}>{COL_LABELS[c]}</T>
-                    ))}
-                  </View>
-
-                  {timetable.rows.map((r, i) => {
-                    const isToday = Number(r.gregorianDay) === todayDay;
-                    const alt = i % 2 === 1;
-                    return (
-                      <View
-                        key={r.gregorianDay}
+                {timetable.rows.map((r, i) => {
+                  const isToday = Number(r.gregorianDay) === todayDay;
+                  return (
+                    <View
+                      key={r.gregorianDay}
+                      style={[
+                        styles.trow,
+                        {
+                          backgroundColor: isToday ? palette.accentSoft : "transparent",
+                          borderBottomColor: palette.glassBorder,
+                        },
+                      ]}
+                    >
+                      <Text
                         style={[
-                          styles.trow,
-                          { backgroundColor: isToday ? colors.highlight : alt ? colors.surfaceAlt : colors.surface, borderColor: colors.border },
+                          styles.cellDay,
+                          { color: isToday ? palette.accent : palette.onSky },
                         ]}
                       >
-                        <T variant="mono" style={styles.cellDay}>{r.gregorianDay}</T>
-                        <T variant="caption" style={styles.cellWd}>{r.weekday}</T>
-                        {PRAYER_COLS.map((c) => {
-                          const val = r[c];
-                          const extreme = (c === "fajr" && r.fajrRuleType !== "angle") || (c === "isha" && r.ishaRuleType !== "angle");
-                          return (
-                            <T
-                              key={c}
-                              variant="mono"
-                              style={styles.cell}
-                              color={extreme ? colors.warning : colors.text}
-                            >
-                              {val}
-                            </T>
-                          );
-                        })}
-                      </View>
-                    );
-                  })}
-                </ScrollView>
+                        {r.gregorianDay}
+                      </Text>
+                      <Text style={[styles.cellWd, { color: palette.onSkyMuted }]}>{r.weekday}</Text>
+                      {PRAYER_COLS.map((c) => {
+                        const val = r[c];
+                        const extreme =
+                          (c === "fajr" && r.fajrRuleType !== "angle") ||
+                          (c === "isha" && r.ishaRuleType !== "angle");
+                        return (
+                          <Text
+                            key={c}
+                            style={[
+                              styles.cell,
+                              {
+                                color: extreme ? palette.accent : palette.onSky,
+                                fontWeight: extreme ? "700" : "600",
+                              },
+                            ]}
+                          >
+                            {val}
+                          </Text>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
               </View>
-            </View>
-          </ScrollView>
-        </View>
+            </ScrollView>
+          </GlassCard>
 
-        <Card style={{ margin: 12 }}>
-          <T variant="section">How these times are calculated</T>
-          <T variant="caption" style={{ marginTop: 6 }}>{timetable.ruleSummary}</T>
-          {!isCustom && (
-            <T variant="caption" style={{ marginTop: 6, color: colors.textMuted }}>
-              Other cities: {Object.values(CITIES).map((c) => c.label).join(", ")}.
-            </T>
-          )}
-        </Card>
+          {/* Rule summary */}
+          <GlassCard palette={palette} style={{ marginTop: 16, padding: 16 }}>
+            <Text style={[styles.ruleTitle, { color: palette.accent }]}>HOW THESE TIMES ARE CALCULATED</Text>
+            <Text style={[styles.ruleBody, { color: palette.onSkyMuted, marginTop: 8 }]}>
+              {timetable.ruleSummary}
+            </Text>
+            {!isCustom && (
+              <Text style={[styles.ruleBody, { color: palette.onSkyMuted, marginTop: 8 }]}>
+                Cities: {Object.values(CITIES).map((c) => c.label).join(", ")}.
+              </Text>
+            )}
+          </GlassCard>
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
       </SafeAreaView>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
+  content: { paddingHorizontal: 16, paddingBottom: 40 },
+  header: { alignItems: "center", gap: 6, paddingTop: 12 },
+  kicker: { fontSize: 11, fontWeight: "800", letterSpacing: 2 },
+  city: { fontSize: 24, fontWeight: "800", marginTop: 4 },
   navRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 24,
-    marginTop: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    gap: 28,
+    marginTop: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
     borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
   },
-  navBtn: {
-    paddingHorizontal: 4,
-  },
+  navArrow: { fontSize: 22, fontWeight: "800", paddingHorizontal: 6 },
+  navTitle: { fontSize: 16, fontWeight: "700" },
+  hijri: { fontSize: 13, fontWeight: "600" },
   thead: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
   },
   trow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 7,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  cellDayHead: { width: 44, paddingLeft: 10, fontWeight: "700" },
-  cellWdHead: { width: 36 },
-  cellHead: { width: 74, fontWeight: "700" },
-  cellDay: { width: 44, paddingLeft: 10, fontSize: 14 },
-  cellWd: { width: 36, fontSize: 11 },
-  cell: { width: 74, fontSize: 14 },
+  cellDayHead: { width: 44, fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
+  cellWdHead: { width: 34, fontSize: 11, fontWeight: "700" },
+  cellHead: { width: 72, fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
+  cellDay: { width: 44, fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums" as const] },
+  cellWd: { width: 34, fontSize: 11 },
+  cell: { width: 72, fontSize: 13, fontWeight: "600", fontVariant: ["tabular-nums" as const] },
+  ruleTitle: { fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
+  ruleBody: { fontSize: 13, fontWeight: "500", lineHeight: 19 },
 });

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 
-import { Card, Screen, T } from "@/components/primitives";
+import { Card, T } from "@/components/primitives";
 import { useTheme } from "@/hooks/use-theme";
+import { PERIOD_PALETTES } from "@/theme/palettes";
 import { CITIES, MONTHS } from "@/engine";
 import { useSettings } from "@/store/settings";
 import { requestNotificationPermission, reschedulePrayerNotifications } from "@/notifications/scheduler";
@@ -15,6 +17,7 @@ import type { IshaMode } from "@/engine";
 
 export default function SettingsScreen() {
   const colors = useTheme();
+  const palette = PERIOD_PALETTES.neutral;
   const s = useSettings();
 
   // Reschedule notifications + refresh widgets whenever settings that affect them change.
@@ -62,7 +65,8 @@ export default function SettingsScreen() {
   }
 
   return (
-    <Screen>
+    <View style={{ flex: 1, backgroundColor: palette.sky[0] }}>
+      <LinearGradient colors={palette.sky} style={StyleSheet.absoluteFill} />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <T variant="section">Location</T>
@@ -261,7 +265,7 @@ export default function SettingsScreen() {
           </T>
         </ScrollView>
       </SafeAreaView>
-    </Screen>
+    </View>
   );
 }
 
