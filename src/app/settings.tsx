@@ -1,24 +1,38 @@
 import { useEffect, useState } from "react";
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 
-import { Card, T } from "@/components/primitives";
+import { CrescentMark, PrayerIcon, TabSettingsIcon } from "@/components/icons";
 import { useTheme } from "@/hooks/use-theme";
-import { PERIOD_PALETTES } from "@/theme/palettes";
+import { useToday } from "@/hooks/use-prayer-data";
 import { CITIES, MONTHS } from "@/engine";
+import type { IshaMode, PrayerKey } from "@/engine";
 import { useSettings } from "@/store/settings";
 import { requestNotificationPermission, reschedulePrayerNotifications } from "@/notifications/scheduler";
 import { updateNextPrayerWidget } from "@/widgets/widgetTask";
 import { publishWidgetSnapshot } from "@/widgets/sharedDefaults";
-import type { IshaMode } from "@/engine";
+import { accentForTime } from "@/theme/palettes";
+
+const PRAYER_KEYS: Exclude<PrayerKey, "sunrise">[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
 export default function SettingsScreen() {
   const colors = useTheme();
-  const palette = PERIOD_PALETTES.neutral;
   const s = useSettings();
+  const { day } = useToday();
+  const t = day.times;
+
+  // Same time-adaptive accent as the home screen, so Settings feels part of the app.
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const period = accentForTime(nowMin, {
+    fajr: t.fajr.time,
+    sunrise: t.sunrise ?? t.fajr.time + 90,
+    dhuhr: t.dhuhr,
+    asr: t.asr ?? t.maghrib,
+    maghrib: t.maghrib,
+    isha: t.isha.time,
+  });
 
   // Reschedule notifications + refresh widgets whenever settings that affect them change.
   useEffect(() => {
@@ -64,66 +78,106 @@ export default function SettingsScreen() {
     s.setNotifications({ enabled: value });
   }
 
+  const switchTrack = { false: colors.surfaceAlt, true: period.accent };
+
   return (
-    <View style={{ flex: 1, backgroundColor: palette.sky[0] }}>
-      <LinearGradient colors={palette.sky} style={StyleSheet.absoluteFill} />
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <T variant="section">Location</T>
-          <Card style={{ marginTop: 8 }}>
-            {Object.values(CITIES).map((c) => {
+          {/* Header — matches the home screen */}
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <CrescentMark size={20} color={period.accent} />
+              <Text style={[styles.kicker, { color: colors.textFaint }]}>PRAYER ESTONIA</Text>
+            </View>
+            <View style={styles.headerTitleRow}>
+              <TabSettingsIcon size={22} color={period.accent} />
+              <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
+            </View>
+          </View>
+
+          {/* Location */}
+          <SectionLabel colors={colors}>Location</SectionLabel>
+          <View style={[styles.card, { backgroundColor: colors.card }, colors.shadow]}>
+            {Object.values(CITIES).map((c, i) => {
               const active = s.location.mode === "preset" && s.location.presetKey === c.key;
               return (
                 <Pressable
                   key={c.key}
                   onPress={() => s.usePresetCity(c.key)}
-                  style={({ pressed }) => [styles.optionRow, pressed && { opacity: 0.6 }]}
+                  style={({ pressed }) => [
+                    styles.selectRow,
+                    i > 0 && styles.rowBorder,
+                    pressed && { opacity: 0.6 },
+                    active && { backgroundColor: colors.accentSoft },
+                  ]}
                 >
-                  <T variant="body" color={active ? colors.accent : colors.text}>{c.label}</T>
-                  {active && <T variant="body" color={colors.accent}>✓</T>}
+                  <Text style={[styles.rowTitle, { color: active ? period.accent : colors.text }]}>
+                    {c.label}
+                  </Text>
+                  {active && <Check color={period.accent} />}
                 </Pressable>
               );
             })}
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <Pressable onPress={onUseLocation} style={({ pressed }) => [styles.optionRow, pressed && { opacity: 0.6 }]}>
-              <T variant="body" color={s.location.mode === "custom" ? colors.accent : colors.text}>
-                {s.location.mode === "custom" ? `📍 ${s.location.label}` : "📍 Use my location (GPS)"}
-              </T>
-              {s.location.mode === "custom" && <T variant="body" color={colors.accent}>✓</T>}
+            <View style={styles.rowBorder} />
+            <Pressable
+              onPress={onUseLocation}
+              style={({ pressed }) => [styles.selectRow, pressed && { opacity: 0.6 }]}
+            >
+              <Text
+                style={[
+                  styles.rowTitle,
+                  { color: s.location.mode === "custom" ? period.accent : colors.text },
+                ]}
+              >
+                {s.location.mode === "custom" ? s.location.label : "Use my location"}
+              </Text>
+              {s.location.mode === "custom" && <Check color={period.accent} />}
             </Pressable>
             {s.location.mode === "custom" && s.location.latitude && (
-              <T variant="caption" style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+              <Text style={[styles.coords, { color: colors.textFaint }]}>
                 {s.location.latitude.toFixed(4)}, {s.location.longitude?.toFixed(4)} · {s.location.timeZone}
-              </T>
+              </Text>
             )}
-          </Card>
+          </View>
 
           {/* Notifications */}
-          <T variant="section" style={{ marginTop: 20 }}>Notifications</T>
-          <Card style={{ marginTop: 8 }}>
-            <Row label="Prayer notifications">
+          <SectionLabel colors={colors}>Notifications</SectionLabel>
+          <View style={[styles.card, { backgroundColor: colors.card }, colors.shadow]}>
+            <Row colors={colors} label="Prayer notifications" first>
               <Switch
                 value={s.notifications.enabled}
                 onValueChange={onEnableNotifications}
-                trackColor={{ false: colors.border, true: colors.accent }}
+                trackColor={switchTrack}
+                thumbColor="#ffffff"
               />
             </Row>
             {s.notifications.enabled && (
-              <View style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 8 }}>
-                {(["fajr", "dhuhr", "asr", "maghrib", "isha"] as const).map((p) => (
-                  <Row key={p} label={p.charAt(0).toUpperCase() + p.slice(1)}>
-                    <Switch
-                      value={s.notifications.prayers[p]}
-                      onValueChange={(v) =>
-                        s.setNotifications({ prayers: { ...s.notifications.prayers, [p]: v } })
-                      }
-                      trackColor={{ false: colors.border, true: colors.accent }}
-                    />
-                  </Row>
-                ))}
-                <Row label="Reminder (min before)">
+              <>
+                {PRAYER_KEYS.map((p) => {
+                  const Icon = PrayerIcon[p];
+                  return (
+                    <Row
+                      key={p}
+                      colors={colors}
+                      label={p.charAt(0).toUpperCase() + p.slice(1)}
+                      icon={<Icon size={18} color={colors.textMuted} />}
+                    >
+                      <Switch
+                        value={s.notifications.prayers[p]}
+                        onValueChange={(v) =>
+                          s.setNotifications({ prayers: { ...s.notifications.prayers, [p]: v } })
+                        }
+                        trackColor={switchTrack}
+                        thumbColor="#ffffff"
+                      />
+                    </Row>
+                  );
+                })}
+                <Row colors={colors} label="Reminder before">
                   <InlineNumberInput
                     value={reminderText}
+                    suffix="min"
                     onEnd={(text) => {
                       const n = Math.max(0, Math.min(120, Number(text) || 0));
                       setReminderText(String(n));
@@ -131,30 +185,29 @@ export default function SettingsScreen() {
                     }}
                   />
                 </Row>
-                <Row label="Sound">
+                <Row colors={colors} label="Sound" last>
                   <Switch
                     value={s.notifications.sound}
                     onValueChange={(v) => s.setNotifications({ sound: v })}
-                    trackColor={{ false: colors.border, true: colors.accent }}
+                    trackColor={switchTrack}
+                    thumbColor="#ffffff"
                   />
                 </Row>
-              </View>
+              </>
             )}
-          </Card>
+          </View>
 
           {/* Auto-silence (Android only) */}
           {Platform.OS === "android" && (
             <>
-              <T variant="section" style={{ marginTop: 20 }}>Auto-silence at prayer</T>
-              <Card style={{ marginTop: 8 }}>
-                <Row label="Silence ringer at adhan">
+              <SectionLabel colors={colors}>Auto-silence at prayer</SectionLabel>
+              <View style={[styles.card, { backgroundColor: colors.card }, colors.shadow]}>
+                <Row colors={colors} label="Silence ringer at adhan" first>
                   <Switch
                     value={s.silence.enabled}
                     onValueChange={async (v) => {
                       if (v) {
-                        const granted = await Notifications.requestPermissionsAsync();
-                        // Android: needs Do-Not-Disturb access (Notification Policy).
-                        // We deep-link the user to the setting because granting requires system UI.
+                        await Notifications.requestPermissionsAsync();
                         const ok = await maybeOpenDndAccess();
                         if (!ok) {
                           Alert.alert(
@@ -167,87 +220,137 @@ export default function SettingsScreen() {
                           );
                           return;
                         }
-                        void granted;
                       }
                       s.setSilence({ enabled: v });
                     }}
-                    trackColor={{ false: colors.border, true: colors.accent }}
+                    trackColor={switchTrack}
+                    thumbColor="#ffffff"
                   />
                 </Row>
                 {s.silence.enabled && (
-                  <View style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 8 }}>
-                    <Row label="Mode">
+                  <>
+                    <Row colors={colors} label="Mode">
                       <Segmented
+                        accent={period.accent}
+                        surface={colors.surfaceAlt}
+                        text={colors.text}
+                        muted={colors.textMuted}
+                        invert={colors.textInvert}
                         options={["vibrate", "silent"]}
                         value={s.silence.mode}
                         onChange={(mode) => s.setSilence({ mode: mode as "vibrate" | "silent" })}
                       />
                     </Row>
-                    <Row label="Restore after (min)">
+                    <Row colors={colors} label="Restore after" last>
                       <InlineNumberInput
                         value={String(s.silence.restoreAfterMinutes)}
+                        suffix="min"
                         onEnd={(text) => {
                           const n = Math.max(1, Math.min(180, Number(text) || 20));
                           s.setSilence({ restoreAfterMinutes: n });
                         }}
                       />
                     </Row>
-                  </View>
+                  </>
                 )}
-                <T variant="caption" style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-                  Automatic silencing is available on Android only. On iOS, use a Do-Not-Disturb Focus instead.
-                </T>
-              </Card>
+                <Text style={[styles.note, { color: colors.textFaint }]}>
+                  Android only — iOS does not allow apps to change the ringer. Use a Focus there.
+                </Text>
+              </View>
             </>
           )}
 
-          {/* Advanced method overrides */}
-          <T variant="section" style={{ marginTop: 20 }}>Calculation method (advanced)</T>
-          <Card style={{ marginTop: 8 }}>
-            <MethodNumber label="Fajr angle (°)" value={String(s.method.fajrAngle)} onEnd={(t) => s.setMethod({ fajrAngle: clampNum(t, 0, 30, s.method.fajrAngle) })} />
-            <MethodNumber label="Isha angle (°)" value={String(s.method.ishaAngle)} onEnd={(t) => s.setMethod({ ishaAngle: clampNum(t, 0, 30, s.method.ishaAngle) })} />
-            <MethodNumber label="Asr shadow factor (1=Shafi, 2=Hanafi)" value={String(s.method.asrShadowFactor)} onEnd={(t) => s.setMethod({ asrShadowFactor: clampNum(t, 1, 2, s.method.asrShadowFactor) })} />
-            <MethodNumber label="Dhuhr offset (min)" value={String(s.method.dhuhrOffsetMinutes)} onEnd={(t) => s.setMethod({ dhuhrOffsetMinutes: clampNum(t, -30, 30, s.method.dhuhrOffsetMinutes) })} />
-            <MethodNumber label="Maghrib offset (min)" value={String(s.method.maghribOffsetMinutes)} onEnd={(t) => s.setMethod({ maghribOffsetMinutes: clampNum(t, -30, 30, s.method.maghribOffsetMinutes) })} />
-          </Card>
+          {/* Calculation method */}
+          <SectionLabel colors={colors}>Calculation method</SectionLabel>
+          <View style={[styles.card, { backgroundColor: colors.card }, colors.shadow]}>
+            <MethodNumber colors={colors} label="Fajr angle" unit="°" value={String(s.method.fajrAngle)} onEnd={(x) => s.setMethod({ fajrAngle: clampNum(x, 0, 30, s.method.fajrAngle) })} />
+            <MethodNumber colors={colors} label="Isha angle" unit="°" value={String(s.method.ishaAngle)} onEnd={(x) => s.setMethod({ ishaAngle: clampNum(x, 0, 30, s.method.ishaAngle) })} />
+            <MethodNumber colors={colors} label="Asr shadow factor" unit="" hint="1 = Shafi · 2 = Hanafi" value={String(s.method.asrShadowFactor)} onEnd={(x) => s.setMethod({ asrShadowFactor: clampNum(x, 1, 2, s.method.asrShadowFactor) })} />
+            <MethodNumber colors={colors} label="Dhuhr offset" unit="min" value={String(s.method.dhuhrOffsetMinutes)} onEnd={(x) => s.setMethod({ dhuhrOffsetMinutes: clampNum(x, -30, 30, s.method.dhuhrOffsetMinutes) })} />
+            <MethodNumber colors={colors} label="Maghrib offset" unit="min" value={String(s.method.maghribOffsetMinutes)} onEnd={(x) => s.setMethod({ maghribOffsetMinutes: clampNum(x, -30, 30, s.method.maghribOffsetMinutes) })} last />
+          </View>
 
           {/* Isha month rules */}
-          <T variant="section" style={{ marginTop: 20 }}>Isha rules by month</T>
-          <Card style={{ marginTop: 8 }}>
+          <SectionLabel colors={colors}>Isha rules by month</SectionLabel>
+          <View style={[styles.card, { backgroundColor: colors.card }, colors.shadow]}>
             {MONTHS.map((mName, idx) => {
               const month = idx + 1;
               const rule = s.ishaMonthRules[month];
+              const summer = rule.mode === "fixedAfterMaghrib";
               return (
                 <Pressable
                   key={month}
-                  style={({ pressed }) => [styles.optionRow, pressed && { opacity: 0.6 }]}
+                  style={({ pressed }) => [
+                    styles.monthRow,
+                    idx > 0 && styles.rowBorder,
+                    pressed && { opacity: 0.6 },
+                  ]}
                   onPress={() => {
-                    const nextMode: IshaMode = rule.mode === "fixedAfterMaghrib" ? "anglePreferred" : "fixedAfterMaghrib";
+                    const nextMode: IshaMode = summer ? "anglePreferred" : "fixedAfterMaghrib";
                     s.setIshaMonthRule(month, { mode: nextMode });
                   }}
                 >
-                  <View style={{ flex: 1 }}>
-                    <T variant="body">{mName}</T>
-                    <T variant="caption">{rule.mode === "fixedAfterMaghrib" ? `Maghrib + ${rule.fallbackMinutes} min` : "15° angle"}</T>
+                  <Text style={[styles.monthName, { color: colors.text }]}>{mName}</Text>
+                  <View
+                    style={[
+                      styles.rulePill,
+                      { backgroundColor: summer ? period.accent : colors.surfaceAlt },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "700",
+                        color: summer ? colors.textInvert : colors.textMuted,
+                      }}
+                    >
+                      {summer ? `+${rule.fallbackMinutes} min` : "15°"}
+                    </Text>
                   </View>
-                  <T variant="caption" color={colors.accent}>{rule.mode === "fixedAfterMaghrib" ? "Summer" : "Angle"}</T>
                 </Pressable>
               );
             })}
-            <T variant="caption" style={{ padding: 16 }}>Tap a month to toggle between the 15° angle and the summer "Maghrib + 90 min" rule.</T>
-          </Card>
+            <Text style={[styles.note, { color: colors.textFaint }]}>
+              Tap a month to toggle between the 15° angle and the summer Maghrib-plus rule.
+            </Text>
+          </View>
 
           {/* Appearance */}
-          <T variant="section" style={{ marginTop: 20 }}>Appearance</T>
-          <Card style={{ marginTop: 8 }}>
-            <Row label="Theme">
-              <Segmented options={["system", "light", "dark"]} value={s.theme} onChange={(v) => s.setTheme(v as "system" | "light" | "dark")} />
+          <SectionLabel colors={colors}>Appearance</SectionLabel>
+          <View style={[styles.card, { backgroundColor: colors.card }, colors.shadow]}>
+            <Row
+              colors={colors}
+              label="Theme"
+              first
+              icon={<Dot size={14} color={period.accent} />}
+            >
+              <Segmented
+                accent={period.accent}
+                surface={colors.surfaceAlt}
+                text={colors.text}
+                muted={colors.textMuted}
+                invert={colors.textInvert}
+                options={["system", "light", "dark"]}
+                value={s.theme}
+                onChange={(v) => s.setTheme(v as "system" | "light" | "dark")}
+              />
             </Row>
-            <Row label="Clock">
-              <Segmented options={["12h", "24h"]} value={s.clock} onChange={(v) => s.setClock(v as "12h" | "24h")} />
+            <Row colors={colors} label="Clock" last icon={<Dot size={14} color={colors.surfaceAlt} />}>
+              <Segmented
+                accent={period.accent}
+                surface={colors.surfaceAlt}
+                text={colors.text}
+                muted={colors.textMuted}
+                invert={colors.textInvert}
+                options={["12h", "24h"]}
+                value={s.clock}
+                onChange={(v) => s.setClock(v as "12h" | "24h")}
+              />
             </Row>
-          </Card>
+          </View>
 
+          {/* Danger zone */}
+          <SectionLabel colors={colors} danger>Reset</SectionLabel>
           <Pressable
             onPress={() => {
               Alert.alert("Reset to defaults", "Restore the Estonia (Tallinn) method and defaults?", [
@@ -255,14 +358,20 @@ export default function SettingsScreen() {
                 { text: "Reset", style: "destructive", onPress: () => s.resetToDefaults() },
               ]);
             }}
-            style={({ pressed }) => [styles.resetBtn, pressed && { opacity: 0.6 }, { borderColor: colors.danger }]}
+            style={({ pressed }) => [
+              styles.resetBtn,
+              { backgroundColor: colors.surfaceAlt },
+              pressed && { opacity: 0.6 },
+            ]}
           >
-            <T variant="body" color={colors.danger}>Reset to defaults</T>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.danger }}>
+              Reset to defaults
+            </Text>
           </Pressable>
 
-          <T variant="caption" style={{ textAlign: "center", marginTop: 12, marginBottom: 32 }}>
-            Defaults from eestiislamikeskus.org · Prayer v1.0
-          </T>
+          <Text style={[styles.footer, { color: colors.textFaint }]}>
+            Calculation method from eestiislamikeskus.org
+          </Text>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -270,70 +379,189 @@ export default function SettingsScreen() {
 }
 
 /* --------------------------------------------------------------- */
-/* Small building blocks                                            */
+/* Building blocks                                                  */
 /* --------------------------------------------------------------- */
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+type Theme = ReturnType<typeof useTheme>;
+
+function SectionLabel({
+  colors,
+  children,
+  danger,
+}: {
+  colors: Theme;
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
   return (
-    <View style={styles.optionRow}>
-      <T variant="body">{label}</T>
+    <Text
+      style={{
+        fontSize: 11,
+        fontWeight: "800",
+        letterSpacing: 2,
+        textTransform: "uppercase",
+        color: danger ? colors.danger : colors.textFaint,
+        marginTop: 26,
+        marginBottom: 10,
+        marginHorizontal: 4,
+      }}
+    >
       {children}
+    </Text>
+  );
+}
+
+function Row({
+  colors,
+  label,
+  children,
+  icon,
+  first,
+  last,
+}: {
+  colors: Theme;
+  label: string;
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+  first?: boolean;
+  last?: boolean;
+}) {
+  return (
+    <View style={[!first && styles.rowBorder]}>
+      <View style={[styles.row, last && { borderBottomWidth: 0 }]}>
+        {icon ? <View style={{ marginRight: 10, width: 20, alignItems: "center" }}>{icon}</View> : null}
+        <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text, flex: 1 }}>
+          {label}
+        </Text>
+        {children}
+      </View>
     </View>
   );
 }
 
-function InlineNumberInput({ value, onEnd }: { value: string; onEnd: (text: string) => void }) {
+function Check({ color }: { color: string }) {
+  return (
+    <Text style={{ fontSize: 16, fontWeight: "800", color }}>✓</Text>
+  );
+}
+
+function Dot({ size, color }: { size: number; color: string }) {
+  return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />;
+}
+
+function InlineNumberInput({
+  value,
+  onEnd,
+  suffix,
+}: {
+  value: string;
+  onEnd: (text: string) => void;
+  suffix?: string;
+}) {
   const colors = useTheme();
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   return (
-    <TextInput
-      value={text}
-      onChangeText={setText}
-      onEndEditing={() => onEnd(text)}
-      keyboardType="numeric"
-      style={{
-        width: 64,
-        textAlign: "center",
-        paddingVertical: 6,
-        paddingHorizontal: 8,
-        borderRadius: 8,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.border,
-        color: colors.text,
-      }}
-    />
-  );
-}
-
-function MethodNumber({ label, value, onEnd }: { label: string; value: string; onEnd: (t: string) => void }) {
-  return (
-    <View style={styles.optionRow}>
-      <T variant="body" style={{ flex: 1 }}>{label}</T>
-      <InlineNumberInput value={value} onEnd={onEnd} />
+    <View style={[styles.numWrap, { backgroundColor: colors.surfaceAlt }]}>
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        onEndEditing={() => onEnd(text)}
+        keyboardType="numeric"
+        selectTextOnFocus
+        style={{
+          width: 44,
+          textAlign: "center",
+          paddingVertical: 6,
+          fontSize: 15,
+          fontWeight: "700",
+          color: colors.text,
+          fontVariant: ["tabular-nums" as const],
+        }}
+      />
+      {suffix ? (
+        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.textFaint, marginRight: 8 }}>
+          {suffix}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-function Segmented({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
-  const colors = useTheme();
+function MethodNumber({
+  colors,
+  label,
+  unit,
+  hint,
+  value,
+  onEnd,
+  last,
+}: {
+  colors: Theme;
+  label: string;
+  unit: string;
+  hint?: string;
+  value: string;
+  onEnd: (t: string) => void;
+  last?: boolean;
+}) {
   return (
-    <View style={{ flexDirection: "row", borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, overflow: "hidden" }}>
+    <View style={[!last && styles.rowBorder, styles.row, last && { borderBottomWidth: 0 }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>
+          {label}
+          {unit ? ` (${unit})` : ""}
+        </Text>
+        {hint ? (
+          <Text style={{ fontSize: 12, fontWeight: "500", color: colors.textFaint, marginTop: 2 }}>
+            {hint}
+          </Text>
+        ) : null}
+      </View>
+      <InlineNumberInput value={value} onEnd={onEnd} suffix={unit || undefined} />
+    </View>
+  );
+}
+
+function Segmented({
+  options,
+  value,
+  onChange,
+  accent,
+  surface,
+  text,
+  muted,
+  invert,
+}: {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  accent: string;
+  surface: string;
+  text: string;
+  muted: string;
+  invert: string;
+}) {
+  return (
+    <View style={[styles.segTrack, { backgroundColor: surface }]}>
       {options.map((opt) => {
         const active = opt === value;
         return (
           <Pressable
             key={opt}
             onPress={() => onChange(opt)}
-            style={{
-              paddingVertical: 6,
-              paddingHorizontal: 12,
-              backgroundColor: active ? colors.accent : "transparent",
-            }}
+            style={[styles.segItem, active && { backgroundColor: accent }]}
           >
-            <T variant="caption" color={active ? colors.textInvert : colors.textMuted} style={{ textTransform: "none" }}>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "700",
+                textTransform: "capitalize",
+                color: active ? invert : muted,
+              }}
+            >
               {opt}
-            </T>
+            </Text>
           </Pressable>
         );
       })}
@@ -348,8 +576,6 @@ function clampNum(text: string, min: number, max: number, fallback: number): num
 }
 
 async function maybeOpenDndAccess(): Promise<boolean> {
-  // Android Notification Policy access can't be queried reliably pre-grant; we open the
-  // system settings page so the user can enable it. Return true optimistically once there.
   try {
     await Linking.openSettings();
     return true;
@@ -359,27 +585,72 @@ async function maybeOpenDndAccess(): Promise<boolean> {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
+  root: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 48 },
+  header: { alignItems: "center", marginBottom: 6 },
+  headerTop: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  kicker: { fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
+  headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerTitle: { fontSize: 24, fontWeight: "800", letterSpacing: 0.2 },
+
+  card: { borderRadius: 22, overflow: "hidden" },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 13,
+    paddingHorizontal: 18,
+    gap: 12,
+    minHeight: 50,
   },
-  optionRow: {
+  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(128,128,128,0.18)" },
+  selectRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 12,
+    paddingHorizontal: 18,
+    minHeight: 50,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: 16,
-  },
-  resetBtn: {
-    marginTop: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+  rowTitle: { fontSize: 15, fontWeight: "600", flex: 1 },
+  coords: { fontSize: 12, fontWeight: "500", paddingHorizontal: 18, paddingBottom: 12 },
+  note: { fontSize: 12, fontWeight: "500", paddingHorizontal: 18, paddingVertical: 12, lineHeight: 17 },
+
+  monthRow: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    minHeight: 48,
+  },
+  monthName: { fontSize: 15, fontWeight: "600" },
+  rulePill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+
+  numWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+
+  segTrack: { flexDirection: "row", borderRadius: 12, padding: 3, gap: 2 },
+  segItem: {
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    alignItems: "center",
+  },
+
+  resetBtn: {
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  footer: {
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 20,
   },
 });

@@ -1,27 +1,28 @@
 /**
- * Minimal styled primitives used across screens. Keeps StyleSheet usage consistent
- * and lets screens consume the active palette without prop-drilling colors.
+ * Minimal styled primitives for the clean modern design. Cards use soft shadows
+ * and solid surfaces; text uses a strict type scale with guaranteed contrast.
  */
 
+import * as React from "react";
 import { StyleSheet, View, Text, type ViewStyle, type TextStyle } from "react-native";
 
 import { useTheme } from "@/hooks/use-theme";
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const colors = useTheme();
+  return <View style={[{ flex: 1, backgroundColor: colors.bg }, style]}>{children}</View>;
+}
+
+export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const colors = useTheme();
   return (
-    <View style={[{ flex: 1, backgroundColor: colors.bg }, style]}>
+    <View style={[styles.card, { backgroundColor: colors.card }, colors.shadow, style]}>
       {children}
     </View>
   );
 }
 
-export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
-  const colors = useTheme();
-  return <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]}>{children}</View>;
-}
-
-type TextVariant = "title" | "section" | "body" | "caption" | "mono" | "monoLarge" | "monoHero";
+type TextVariant = "title" | "section" | "body" | "caption" | "mono";
 
 export function T({
   children,
@@ -38,33 +39,25 @@ export function T({
 }) {
   const colors = useTheme();
   const base: Record<TextVariant, TextStyle> = {
-    title: { fontSize: 26, fontWeight: "800", color: colors.text },
-    section: { fontSize: 13, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.5, textTransform: "uppercase" },
+    title: { fontSize: 22, fontWeight: "800", color: colors.text, letterSpacing: 0.2 },
+    section: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: colors.textFaint,
+      letterSpacing: 2,
+      textTransform: "uppercase",
+    },
     body: { fontSize: 16, fontWeight: "500", color: colors.text },
     caption: { fontSize: 13, fontWeight: "500", color: colors.textMuted },
-    mono: { fontSize: 17, fontWeight: "700", color: colors.text, fontVariant: ["tabular-nums"] },
-    monoLarge: { fontSize: 40, fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },
-    monoHero: { fontSize: 64, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
+    mono: { fontSize: 16, fontWeight: "700", color: colors.text, fontVariant: ["tabular-nums"] },
   };
-  const variantStyle = base[variant];
   return (
-    <Text
-      style={[
-        variantStyle,
-        align ? { textAlign: align } : null,
-        color ? { color } : null,
-        style,
-      ]}
-    >
+    <Text style={[base[variant], align ? { textAlign: align } : null, color ? { color } : null, style]}>
       {children}
     </Text>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-  },
+  card: { borderRadius: 22 },
 });

@@ -1,14 +1,11 @@
 import { Tabs } from "expo-router";
-import { Platform, Text, type ColorValue } from "react-native";
 
+import { TabTodayIcon, TabMonthIcon, TabSettingsIcon } from "@/components/icons";
 import { useTheme } from "@/hooks/use-theme";
 
 /**
- * Bottom tab bar. Uses the stable expo-router <Tabs /> (works in Expo Go and bare
- * builds). Three tabs: Today, Month, Settings.
- *
- * (Previously used expo-router/unstable-native-tabs, which crashed in environments
- * lacking the native screens tab host — e.g. Expo Go.)
+ * Bottom tab bar — clean and modern: floating translucent surface, soft top border,
+ * proper SVG icons (no text glyphs). Three tabs: Today, Month, Settings.
  */
 export default function AppTabs() {
   const colors = useTheme();
@@ -18,45 +15,45 @@ export default function AppTabs() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          position: "absolute",
+          backgroundColor: colors.isDark ? "rgba(11,15,20,0.92)" : "rgba(255,255,255,0.94)",
           borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 84,
+          paddingTop: 8,
+          paddingBottom: 20,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "600",
+          marginTop: 2,
         },
+        tabBarIconStyle: { marginTop: 2 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "Today",
-          tabBarIcon: ({ color }) => <TabGlyph icon="☀" color={color} />,
+          tabBarIcon: ({ color }) => <TabTodayIcon size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="month"
         options={{
           title: "Month",
-          tabBarIcon: ({ color }) => <TabGlyph icon="▦" color={color} />,
+          tabBarIcon: ({ color }) => <TabMonthIcon size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
-          tabBarIcon: ({ color }) => <TabGlyph icon="⚙" color={color} />,
+          tabBarIcon: ({ color }) => <TabSettingsIcon size={24} color={color} />,
         }}
       />
     </Tabs>
   );
-}
-
-/** Lightweight text glyph as a tab icon (no asset dependency). */
-function TabGlyph({ icon, color }: { icon: string; color: ColorValue }) {
-  // Text-based glyph avoids needing image assets per platform.
-  if (Platform.OS === "web") return null;
-  return <Text style={{ fontSize: 18, color }}>{icon}</Text>;
 }
