@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -41,6 +41,33 @@ export default function MonthScreen() {
     today.getFullYear() === year && today.getMonth() + 1 === month ? today.getDate() : -1;
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth() + 1;
 
+  // --- Auto-scroll to today's row -------------------------------------------
+  // Scrolls once per viewed month (not on every recompute/interaction). Y is the
+  // table card's offset in the scroll content plus the row's offset in the card,
+  // minus a top offset so the header stays visible above today's row.
+  const scrollRef = useRef<ScrollView>(null);
+  const tableYRef = useRef<number | null>(null);
+  const todayYRef = useRef<number | null>(null);
+  const autoScrolledFor = useRef<string | null>(null);
+  const monthKey = `${year}-${month}`;
+
+  const tryAutoScroll = () => {
+    if (todayDay === -1) return;
+    if (autoScrolledFor.current === monthKey) return;
+    const tableY = tableYRef.current;
+    const rowY = todayYRef.current;
+    if (tableY == null || rowY == null) return;
+    autoScrolledFor.current = monthKey;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, tableY + rowY - 130), animated: false });
+    });
+  };
+
+  useEffect(() => {
+    if (!loading && timetable) tryAutoScroll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, timetable, monthKey]);
+
   function prevMonth() {
     if (month === 1) { setMonth(12); setYear((y) => y - 1); } else setMonth((m) => m - 1);
   }
@@ -55,7 +82,11 @@ export default function MonthScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTop}>
@@ -100,7 +131,13 @@ export default function MonthScreen() {
           )}
 
           {/* Fit-to-width table (no horizontal scrolling) */}
-          <View style={[styles.tableCard, { backgroundColor: colors.card }, colors.shadow]}>
+          <View
+            style={[styles.tableCard, { backgroundColor: colors.card }, colors.shadow]}
+            onLayout={(e) => {
+              tableYRef.current = e.nativeEvent.layout.y;
+              tryAutoScroll();
+            }}
+          >
             {/* Column header */}
             <View style={[styles.thead, { borderBottomColor: colors.border }]}>
               <View style={styles.dayHeadCol}>
@@ -123,23 +160,34 @@ export default function MonthScreen() {
                 return (
                   <View
                     key={r.gregorianDay}
+                    onLayout={
+                      isToday
+                        ? (e) => {
+                            todayYRef.current = e.nativeEvent.layout.y;
+                            tryAutoScroll();
+                          }
+                        : undefined
+                    }
                     style={[
                       styles.trow,
                       { borderBottomColor: colors.border },
                       isToday && { backgroundColor: colors.accentSoft },
                     ]}
                   >
-                    {/* Day + weekday stacked */}
+                    {/* Day + weekday stacked (today gets a filled accent circle) */}
                     <View style={styles.dayCol}>
-                      <Text
-                        style={[
-                          styles.dayNum,
-                          { color: isToday ? colors.accent : colors.text },
-                        ]}
-                      >
-                        {Number(r.gregorianDay)}
-                      </Text>
-                      <Text style={[styles.dayWd, { color: colors.textFaint }]}>
+                      {isToday ? (
+                        <View style={[styles.todayCircle, { backgroundColor: colors.accent }]}>
+                          <Text style={[styles.todayCircleText, { color: colors.textInvert }]}>
+                            {Number(r.gregorianDay)}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.dayNum, { color: colors.text }]}>
+                          {Number(r.gregorianDay)}
+                        </Text>
+                      )}
+                      <Text style={[styles.dayWd, { color: isToday ? colors.accent : colors.textFaint }]}>
                         {r.weekday.toUpperCase()}
                       </Text>
                     </View>
@@ -280,6 +328,18 @@ const styles = StyleSheet.create({
   },
   dayCol: { width: 44, alignItems: "center", justifyContent: "center" },
   dayNum: { fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums" as const] },
+  todayCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayCircleText: {
+    fontSize: 13,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums" as const],
+  },
   dayWd: { fontSize: 8, fontWeight: "700", letterSpacing: 0.5, marginTop: 1 },
   cell: { fontSize: 12, fontWeight: "600", fontVariant: ["tabular-nums" as const] },
 
