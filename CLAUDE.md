@@ -217,6 +217,20 @@ These are **OS-level restrictions**, not bugs. Do not claim they can be worked a
 
 ### 9.1 Change log
 
+- **2026-08-16 (b)** — **Global time-adaptive accent + real artwork.**
+  (1) `useTheme()` now returns the LIVE period accent (`accentForTime`, day-times cached
+  at module level so N components share one engine run; light mode darkens the accent
+  20% for contrast). The tab bar, Month screen, Settings, and primitives all shift with
+  the prayer period now — the static green only remains as the pre-compute fallback.
+  Settings was simplified to consume the shared accent instead of its own computation.
+  (2) Replaced the solid-green placeholder PNGs ("ugly green splash") with rendered
+  brand artwork via `scripts/generate-art.cjs`: soft-white crescent + gold sparkle on
+  deep `#0A0E13` for splash (imageWidth 160), full-bleed gradient app icon, adaptive
+  fg/mono/bg layers, favicon. Gotchas: premultiplied-accumulate → straight-RGBA
+  normalization; pure polar sparkle stars have zero-width valleys (use a solid-core
+  formula `r = R·(0.3 + 0.7·|cos2θ|^k)`); sips BMP conversion mangles alpha — verify
+  PNGs by decoding IDAT directly.
+
 - **2026-07-06** — Initial build. Ported the `eestiislamikeskus.org` engine from JS to TS
   (`src/engine/`), verified by 198 tests. Built Today/Month/Settings screens, settings
   store (Estonia defaults), notifications, Android auto-silence Kotlin module, and
