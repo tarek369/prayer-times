@@ -238,6 +238,20 @@ These are **OS-level restrictions**, not bugs. Do not claim they can be worked a
   module, both config plugins, widget click actions, iOS App Group, README. Built
   signed release v1.1.0, installed on OnePlus tablet (Play Protect → "Don't send"),
   pushed to GitHub, published release.
+- **2026-08-16** — **Clean modern redesign (v2, replacing the celestial gradient attempt).**
+  The gradient-heavy "celestial" look rendered muddy and was replaced by a clean,
+  modern design: solid elegant backgrounds (near-black #0B0F14 / off-white), soft-shadow
+  cards, strict typography scale, and the time-of-day idea kept as a **subtle accent**
+  only (`src/theme/palettes.ts` → `accentForTime`, 6 period accents). Today screen:
+  hero card (huge time typography + thin animated progress bar + countdown chip) and a
+  **vertical prayer timeline** (past dimmed / next highlighted / dots + connectors).
+  Month: clean table + pill month switcher. Settings: iOS-grouped cards with hairline
+  separators, per-prayer rows with custom SVG icons, pill segmented control, rule pills
+  for Isha months, danger-zone reset. Proper SVG tab icons replaced the old text-glyph
+  (☀▦⚙) icons. Gotchas hit: Gradle `groovy-dsl` script-cache corruption after npm
+  reinstall (fix: `rm -rf ~/.gradle/caches/9.3.1/groovy-dsl`); emulator screenshots can
+  show a false black screen (the app renders fine on real devices); expo-router passes
+  `ColorValue` to tabBarIcon so icon props must accept it.
 - **2026-07-31** — **Celestial design overhaul.** Replaced the generic flat UI with a
   distinctive, modern design language built on three signature ideas:
   (1) **time-of-day adaptive palette** — the whole color world shifts with the active
