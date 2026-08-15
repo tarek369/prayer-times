@@ -9,14 +9,27 @@ export interface HijriDate {
   year: string;
 }
 
-export function getHijriDate(year: number, month: number, day: number, timeZone: string): HijriDate | null {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
+// Formatter creation is expensive (~ms each); month views create one per day,
+// so we cache per timezone. Output is identical.
+const HIJRI_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+
+function hijriFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = HIJRI_FORMATTERS.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
       timeZone,
       day: "numeric",
       month: "long",
       year: "numeric",
     });
+    HIJRI_FORMATTERS.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
+export function getHijriDate(year: number, month: number, day: number, timeZone: string): HijriDate | null {
+  try {
+    const formatter = hijriFormatter(timeZone);
 
     const parts = formatter.formatToParts(new Date(Date.UTC(year, month - 1, day, 12)));
     const getPart = (type: string) => parts.find((part) => part.type === type)?.value;

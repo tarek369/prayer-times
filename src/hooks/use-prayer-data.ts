@@ -37,18 +37,65 @@ export function useToday(now: Date = new Date()): { day: PrayerDay; city: City }
   }, [city, method, ishaMonthRules, now.getFullYear(), now.getMonth() + 1, now.getDate()]);
 }
 
-/** Monthly timetable for a given (year, month), recomputed on settings change. */
-export function useMonthTimetable(year: number, month: number): MonthTimetable {
+/**
+ * Monthly timetable for a given (year, month).
+ *
+ * Computing a full month is expensive (31 days × the astronomical engine ≈ 1s of JS),
+ * so it is (a) cached in memory per settings/month key and (b) computed OFF the render
+ * path — switching to the Month tab mounts instantly and shows a skeleton until the
+ * table is ready. Cached months render with zero delay.
+ */
+const monthCache = new Map<string, MonthTimetable>();
+
+export function useMonthTimetable(
+  year: number,
+  month: number,
+): { timetable: MonthTimetable | null; loading: boolean } {
   const location = useSettings((s) => s.location);
   const method = useSettings((s) => s.method);
   const ishaMonthRules = useSettings((s) => s.ishaMonthRules);
   const clock = useSettings((s) => s.clock);
   const city = useMemo(() => resolveCity(location), [location]);
 
-  return useMemo(
-    () => getMonthTimetable(year, month, city, method, ishaMonthRules, clock === "24h"),
-    [city, method, ishaMonthRules, clock, year, month],
-  );
+  const key = `${city.key}|${city.latitude},${city.longitude}|${city.timeZone}|${JSON.stringify(method)}|${JSON.stringify(ishaMonthRules)}|${clock}|${year}-${month}`;
+
+  const [entry, setEntry] = useState<{ key: string; timetable: MonthTimetable | null }>(() => ({
+    key,
+    timetable: monthCache.get(key) ?? null,
+  }));
+
+  useEffect(() => {
+    if (entry.key === key && entry.timetable) return;
+
+    const cached = monthCache.get(key);
+    if (cached) {
+      setEntry({ key, timetable: cached });
+      return;
+    }
+
+    // Not cached: show skeleton, compute off the render path.
+    setEntry({ key, timetable: null });
+    let cancelled = false;
+    const id = setTimeout(() => {
+      const tt = getMonthTimetable(year, month, city, method, ishaMonthRules, clock === "24h");
+      if (cancelled) return;
+      if (monthCache.size > 24) monthCache.clear();
+      monthCache.set(key, tt);
+      setEntry({ key, timetable: tt });
+    }, 30);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, year, month, city, method, ishaMonthRules, clock]);
+
+  const current = entry.key === key;
+  return {
+    timetable: current ? entry.timetable : null,
+    loading: !current || !entry.timetable,
+  };
 }
 
 /** Live next-prayer countdown. Re-renders every `intervalMs` (default 1s). */
@@ -66,23 +113,28 @@ export function useNextPrayer(intervalMs = 1000): {
 
   const { day: today, city } = useToday(now);
 
-  const next = useMemo(() => {
-    const nowMinutes = localMinutesOfDay(now);
-    // Pre-compute tomorrow's Fajr for day-rollover handling.
+  // Tomorrow's Fajr only changes with the date/settings — compute it once per day,
+  // NOT on every 1s tick (it runs the full astronomical engine).
+  const tomorrowFajr = useMemo(() => {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const location = resolveCity(useSettings.getState().location);
     const method = useSettings.getState().method;
     const ishaMonthRules = useSettings.getState().ishaMonthRules;
-    const tomorrowTimes = calculatePrayerTimes(
+    return calculatePrayerTimes(
       tomorrow.getFullYear(),
       tomorrow.getMonth() + 1,
       tomorrow.getDate(),
       location,
       { method, ishaMonthRules },
-    );
-    return getNextPrayer(today.times, nowMinutes, tomorrowTimes.fajr.time + 1440);
-  }, [now, today]);
+    ).fajr.time;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today, city]);
+
+  const next = useMemo(() => {
+    const nowMinutes = localMinutesOfDay(now);
+    return getNextPrayer(today.times, nowMinutes, tomorrowFajr + 1440);
+  }, [now, today, tomorrowFajr]);
 
   return { now, next, today, city };
 }

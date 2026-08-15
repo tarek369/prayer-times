@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CrescentMark } from "@/components/icons";
 import { useMonthTimetable, useResolvedCity } from "@/hooks/use-prayer-data";
 import { useTheme } from "@/hooks/use-theme";
-import { MONTHS, CITIES } from "@/engine";
+import { MONTHS, formatPrayerTimeCompact } from "@/engine";
 import { useSettings } from "@/store/settings";
 
 const PRAYER_COLS = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
@@ -17,6 +17,15 @@ const COL_LABELS: Record<string, string> = {
   maghrib: "Magh",
   isha: "Isha",
 };
+/** Rounding mode per column — mirrors the website's table. */
+const COL_ROUND: Record<string, "round" | "ceil"> = {
+  fajr: "round",
+  sunrise: "round",
+  dhuhr: "ceil",
+  asr: "ceil",
+  maghrib: "ceil",
+  isha: "ceil",
+};
 
 export default function MonthScreen() {
   const colors = useTheme();
@@ -24,11 +33,13 @@ export default function MonthScreen() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const { city } = useResolvedCity();
-  const timetable = useMonthTimetable(year, month);
+  const use24h = useSettings((s) => s.clock) === "24h";
+  const { timetable, loading } = useMonthTimetable(year, month);
   const isCustom = useSettings((s) => s.location.mode === "custom");
 
   const todayDay =
     today.getFullYear() === year && today.getMonth() + 1 === month ? today.getDate() : -1;
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth() + 1;
 
   function prevMonth() {
     if (month === 1) { setMonth(12); setYear((y) => y - 1); } else setMonth((m) => m - 1);
@@ -40,8 +51,6 @@ export default function MonthScreen() {
     setYear(today.getFullYear());
     setMonth(today.getMonth() + 1);
   }
-
-  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth() + 1;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -69,7 +78,7 @@ export default function MonthScreen() {
               <Text style={[styles.monthTitle, { color: colors.text }]}>
                 {MONTHS[month - 1]} {year}
               </Text>
-              {timetable.hijriRange ? (
+              {timetable?.hijriRange ? (
                 <Text style={[styles.hijri, { color: colors.textFaint }]}>
                   {timetable.hijriRange} AH
                 </Text>
@@ -90,80 +99,98 @@ export default function MonthScreen() {
             </Pressable>
           )}
 
-          {/* Table */}
+          {/* Fit-to-width table (no horizontal scrolling) */}
           <View style={[styles.tableCard, { backgroundColor: colors.card }, colors.shadow]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ minWidth: 430 }}>
-                {/* Header */}
-                <View style={[styles.thead, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.hCell, styles.hDay, { color: colors.textFaint }]}>DAY</Text>
-                  {PRAYER_COLS.map((c) => (
-                    <Text key={c} style={[styles.hCell, { color: colors.textFaint }]}>
-                      {COL_LABELS[c].toUpperCase()}
-                    </Text>
-                  ))}
+            {/* Column header */}
+            <View style={[styles.thead, { borderBottomColor: colors.border }]}>
+              <View style={styles.dayHeadCol}>
+                <Text style={[styles.hText, { color: colors.textFaint }]}>DAY</Text>
+              </View>
+              {PRAYER_COLS.map((c) => (
+                <View key={c} style={styles.col}>
+                  <Text style={[styles.hText, { color: colors.textFaint }]}>
+                    {COL_LABELS[c].toUpperCase()}
+                  </Text>
                 </View>
+              ))}
+            </View>
 
-                {timetable.rows.map((r) => {
-                  const isToday = Number(r.gregorianDay) === todayDay;
-                  return (
-                    <View
-                      key={r.gregorianDay}
-                      style={[
-                        styles.trow,
-                        { borderBottomColor: colors.border },
-                        isToday && { backgroundColor: colors.accentSoft },
-                      ]}
-                    >
+            {loading || !timetable ? (
+              <TableSkeleton colors={colors} />
+            ) : (
+              timetable.rows.map((r) => {
+                const isToday = Number(r.gregorianDay) === todayDay;
+                return (
+                  <View
+                    key={r.gregorianDay}
+                    style={[
+                      styles.trow,
+                      { borderBottomColor: colors.border },
+                      isToday && { backgroundColor: colors.accentSoft },
+                    ]}
+                  >
+                    {/* Day + weekday stacked */}
+                    <View style={styles.dayCol}>
                       <Text
                         style={[
-                          styles.cellDay,
+                          styles.dayNum,
                           { color: isToday ? colors.accent : colors.text },
                         ]}
                       >
-                        {r.gregorianDay}
+                        {Number(r.gregorianDay)}
                       </Text>
-                      <Text style={[styles.cellWd, { color: colors.textFaint }]}>
-                        {r.weekday.slice(0, 2)}
+                      <Text style={[styles.dayWd, { color: colors.textFaint }]}>
+                        {r.weekday.toUpperCase()}
                       </Text>
-                      {PRAYER_COLS.map((c) => {
-                        const extreme =
-                          (c === "fajr" && r.fajrRuleType !== "angle") ||
-                          (c === "isha" && r.ishaRuleType !== "angle");
-                        return (
+                    </View>
+
+                    {PRAYER_COLS.map((c) => {
+                      const extreme =
+                        (c === "fajr" && r.fajrRuleType !== "angle") ||
+                        (c === "isha" && r.ishaRuleType !== "angle");
+                      // Recompute the compact form from the stored full time.
+                      const compact = toCompact(r[c], COL_ROUND[c], use24h);
+                      return (
+                        <View key={c} style={styles.col}>
                           <Text
-                            key={c}
                             style={[
                               styles.cell,
                               {
-                                color: extreme ? colors.warning : colors.text,
+                                color: extreme ? colors.warning : isToday ? colors.text : colors.text,
                                 fontWeight: extreme ? "700" : "600",
                               },
                             ]}
                           >
-                            {r[c]}
+                            {compact}
                           </Text>
-                        );
-                      })}
-                    </View>
-                  );
-                })}
-              </View>
-            </ScrollView>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })
+            )}
           </View>
 
           {/* Info */}
-          <View style={[styles.infoCard, { backgroundColor: colors.card }, colors.shadow]}>
-            <Text style={[styles.infoTitle, { color: colors.accent }]}>CALCULATION</Text>
-            <Text style={[styles.infoBody, { color: colors.textMuted, marginTop: 8 }]}>
-              {timetable.ruleSummary}
-            </Text>
-            {!isCustom && (
-              <Text style={[styles.infoBody, { color: colors.textFaint, marginTop: 8 }]}>
-                {Object.values(CITIES).map((c) => c.label).join(" · ")}
+          {timetable && (
+            <View style={[styles.infoCard, { backgroundColor: colors.card }, colors.shadow]}>
+              <Text style={[styles.infoTitle, { color: colors.accent }]}>CALCULATION</Text>
+              <Text style={[styles.infoBody, { color: colors.textMuted, marginTop: 8 }]}>
+                {timetable.ruleSummary}
               </Text>
-            )}
-          </View>
+              {!isCustom && (
+                <Text style={[styles.infoBody, { color: colors.textFaint, marginTop: 8 }]}>
+                  Cities: Tallinn · Tartu · or use your GPS location
+                </Text>
+              )}
+              {use24h ? null : (
+                <Text style={[styles.infoBody, { color: colors.textFaint, marginTop: 8 }]}>
+                  a = AM · p = PM
+                </Text>
+              )}
+            </View>
+          )}
 
           <View style={{ height: 120 }} />
         </ScrollView>
@@ -172,9 +199,49 @@ export default function MonthScreen() {
   );
 }
 
+/** Convert a stored "10:41 PM" cell to the compact "10:41p" form. */
+function toCompact(full: string, mode: "round" | "ceil", use24h: boolean): string {
+  // Parse "hh:mm AM/PM" or "hh:mm" back to minutes, then re-render compactly.
+  const m = full.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/);
+  if (!m) return full;
+  let h = Number(m[1]);
+  const min = Number(m[2]);
+  if (m[3] === "PM" && h !== 12) h += 12;
+  if (m[3] === "AM" && h === 12) h = 0;
+  const minutes = h * 60 + min;
+  void mode;
+  return formatPrayerTimeCompact(minutes, "round", use24h);
+}
+
+function TableSkeleton({ colors }: { colors: ReturnType<typeof useTheme> }) {
+  const rows = Array.from({ length: 12 });
+  return (
+    <View>
+      {rows.map((_, i) => (
+        <View key={i} style={styles.skRow}>
+          <View style={styles.skDayCol}>
+            <View style={[styles.skBar, styles.skDay, { backgroundColor: colors.surfaceAlt }]} />
+          </View>
+          {PRAYER_COLS.map((c) => (
+            <View key={c} style={styles.col}>
+              <View
+                style={[
+                  styles.skBar,
+                  styles.skCell,
+                  { backgroundColor: colors.surfaceAlt, opacity: 1 - i * 0.05 },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 16 },
   header: { alignItems: "center", marginBottom: 16 },
   headerTop: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   kicker: { fontSize: 10, fontWeight: "800", letterSpacing: 2.2 },
@@ -197,24 +264,32 @@ const styles = StyleSheet.create({
   thead: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  hCell: { width: 70, fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
-  hDay: { width: 34 },
+  dayHeadCol: { width: 44, alignItems: "center" },
+  col: { flex: 1, alignItems: "center" },
+  hText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.8 },
+
   trow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 48,
   },
-  cellDay: { width: 34, fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums" as const] },
-  cellWd: { width: 24, fontSize: 10, fontWeight: "600", marginRight: 12 },
-  cell: { width: 70, fontSize: 13, fontWeight: "600", fontVariant: ["tabular-nums" as const] },
+  dayCol: { width: 44, alignItems: "center", justifyContent: "center" },
+  dayNum: { fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums" as const] },
+  dayWd: { fontSize: 8, fontWeight: "700", letterSpacing: 0.5, marginTop: 1 },
+  cell: { fontSize: 12, fontWeight: "600", fontVariant: ["tabular-nums" as const] },
 
-  infoCard: { borderRadius: 22, padding: 18, marginTop: 16 },
+  skRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
+  skDayCol: { width: 44, alignItems: "center" },
+  skBar: { borderRadius: 4 },
+  skDay: { width: 24, height: 14 },
+  skCell: { width: 34, height: 11 },
+
+  infoCard: { borderRadius: 22, padding: 18, marginTop: 14 },
   infoTitle: { fontSize: 10, fontWeight: "800", letterSpacing: 1.8 },
   infoBody: { fontSize: 13, fontWeight: "500", lineHeight: 19 },
 });

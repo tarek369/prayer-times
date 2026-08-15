@@ -21,7 +21,7 @@ export type { HijriDate } from "./hijri";
 export { calculatePrayerTimes } from "./prayer";
 export { getIshaMonthRule } from "./prayer";
 export { getHijriDate, formatHijriRange } from "./hijri";
-export { formatPrayerTime, getWeekday, formatCountdown, slugify } from "./format";
+export { formatPrayerTime, formatPrayerTimeCompact, getWeekday, formatCountdown, slugify } from "./format";
 export { CITIES, DEFAULT_CITY_KEY, DEFAULT_METHOD, DEFAULT_ISHA_MONTH_RULES, MONTHS, WEEKDAYS } from "./config";
 
 export interface PrayerDay {

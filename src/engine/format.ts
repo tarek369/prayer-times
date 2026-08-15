@@ -33,6 +33,31 @@ export function formatPrayerTime(minutes: number | null, mode: RoundingMode = "r
   return `${String(hour12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
+/**
+ * Compact form for dense tables: "10:41p" (12h) or "22:41" (24h).
+ * Same rounding modes as formatPrayerTime.
+ */
+export function formatPrayerTimeCompact(minutes: number | null, mode: RoundingMode = "round", use24h = false): string {
+  if (minutes === null || Number.isNaN(minutes)) return "--";
+
+  let rounded: number;
+  if (mode === "ceil") rounded = Math.ceil(minutes - 0.000001);
+  else if (mode === "floor") rounded = Math.floor(minutes + 0.000001);
+  else rounded = Math.round(minutes);
+
+  const normalized = normalizeMinutes(rounded);
+  const hour24 = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+
+  if (use24h) {
+    return `${hour24}:${String(minute).padStart(2, "0")}`;
+  }
+
+  const suffix = hour24 < 12 ? "a" : "p";
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, "0")}${suffix}`;
+}
+
 export function getWeekday(year: number, month: number, day: number): string {
   return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
 }
