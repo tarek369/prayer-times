@@ -6,33 +6,20 @@ import * as Notifications from "expo-notifications";
 
 import { CrescentMark, PrayerIcon, TabSettingsIcon } from "@/components/icons";
 import { useTheme } from "@/hooks/use-theme";
-import { useToday } from "@/hooks/use-prayer-data";
 import { CITIES, MONTHS } from "@/engine";
 import type { IshaMode, PrayerKey } from "@/engine";
 import { useSettings } from "@/store/settings";
 import { requestNotificationPermission, reschedulePrayerNotifications } from "@/notifications/scheduler";
 import { updateNextPrayerWidget } from "@/widgets/widgetTask";
 import { publishWidgetSnapshot } from "@/widgets/sharedDefaults";
-import { accentForTime } from "@/theme/palettes";
 
 const PRAYER_KEYS: Exclude<PrayerKey, "sunrise">[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
 export default function SettingsScreen() {
   const colors = useTheme();
   const s = useSettings();
-  const { day } = useToday();
-  const t = day.times;
-
-  // Same time-adaptive accent as the home screen, so Settings feels part of the app.
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-  const period = accentForTime(nowMin, {
-    fajr: t.fajr.time,
-    sunrise: t.sunrise ?? t.fajr.time + 90,
-    dhuhr: t.dhuhr,
-    asr: t.asr ?? t.maghrib,
-    maghrib: t.maghrib,
-    isha: t.isha.time,
-  });
+  // useTheme() already carries the live time-adaptive accent.
+  const accent = colors.accent;
 
   // Reschedule notifications + refresh widgets whenever settings that affect them change.
   useEffect(() => {
@@ -78,7 +65,7 @@ export default function SettingsScreen() {
     s.setNotifications({ enabled: value });
   }
 
-  const switchTrack = { false: colors.surfaceAlt, true: period.accent };
+  const switchTrack = { false: colors.surfaceAlt, true: accent };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -87,11 +74,11 @@ export default function SettingsScreen() {
           {/* Header — matches the home screen */}
           <View style={styles.header}>
             <View style={styles.headerTop}>
-              <CrescentMark size={20} color={period.accent} />
+              <CrescentMark size={20} color={accent} />
               <Text style={[styles.kicker, { color: colors.textFaint }]}>PRAYER ESTONIA</Text>
             </View>
             <View style={styles.headerTitleRow}>
-              <TabSettingsIcon size={22} color={period.accent} />
+              <TabSettingsIcon size={22} color={accent} />
               <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
             </View>
           </View>
@@ -112,10 +99,10 @@ export default function SettingsScreen() {
                     active && { backgroundColor: colors.accentSoft },
                   ]}
                 >
-                  <Text style={[styles.rowTitle, { color: active ? period.accent : colors.text }]}>
+                  <Text style={[styles.rowTitle, { color: active ? accent : colors.text }]}>
                     {c.label}
                   </Text>
-                  {active && <Check color={period.accent} />}
+                  {active && <Check color={accent} />}
                 </Pressable>
               );
             })}
@@ -127,12 +114,12 @@ export default function SettingsScreen() {
               <Text
                 style={[
                   styles.rowTitle,
-                  { color: s.location.mode === "custom" ? period.accent : colors.text },
+                  { color: s.location.mode === "custom" ? accent : colors.text },
                 ]}
               >
                 {s.location.mode === "custom" ? s.location.label : "Use my location"}
               </Text>
-              {s.location.mode === "custom" && <Check color={period.accent} />}
+              {s.location.mode === "custom" && <Check color={accent} />}
             </Pressable>
             {s.location.mode === "custom" && s.location.latitude && (
               <Text style={[styles.coords, { color: colors.textFaint }]}>
@@ -231,7 +218,7 @@ export default function SettingsScreen() {
                   <>
                     <Row colors={colors} label="Mode">
                       <Segmented
-                        accent={period.accent}
+                        accent={accent}
                         surface={colors.surfaceAlt}
                         text={colors.text}
                         muted={colors.textMuted}
@@ -294,7 +281,7 @@ export default function SettingsScreen() {
                   <View
                     style={[
                       styles.rulePill,
-                      { backgroundColor: summer ? period.accent : colors.surfaceAlt },
+                      { backgroundColor: summer ? accent : colors.surfaceAlt },
                     ]}
                   >
                     <Text
@@ -322,10 +309,10 @@ export default function SettingsScreen() {
               colors={colors}
               label="Theme"
               first
-              icon={<Dot size={14} color={period.accent} />}
+              icon={<Dot size={14} color={accent} />}
             >
               <Segmented
-                accent={period.accent}
+                accent={accent}
                 surface={colors.surfaceAlt}
                 text={colors.text}
                 muted={colors.textMuted}
@@ -337,7 +324,7 @@ export default function SettingsScreen() {
             </Row>
             <Row colors={colors} label="Clock" last icon={<Dot size={14} color={colors.surfaceAlt} />}>
               <Segmented
-                accent={period.accent}
+                accent={accent}
                 surface={colors.surfaceAlt}
                 text={colors.text}
                 muted={colors.textMuted}

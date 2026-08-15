@@ -21,7 +21,7 @@
     "android": {
       "package": "org.eestiislam.prayerestonia",
       "adaptiveIcon": {
-        "backgroundColor": "#1f8a4c",
+        "backgroundColor": "#0A0E13",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -43,9 +43,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0e1410",
+          "backgroundColor": "#0A0E13",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76,
+          "imageWidth": 160,
           "resizeMode": "contain"
         }
       ],
@@ -53,7 +53,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#1f8a4c",
+          "color": "#0A0E13",
           "defaultChannel": "prayer-times",
           "enableBackgroundRemoteNotifications": false
         }

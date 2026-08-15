@@ -17,6 +17,7 @@ import { accentForTime } from "@/theme/palettes";
 
 export default function TodayScreen() {
   const colors = useTheme();
+  const accent = colors.accent;
   const { now, next, today, city } = useNextPrayer(1000);
   const use24h = useSettings((s) => s.clock) === "24h";
 
@@ -69,7 +70,7 @@ export default function TodayScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTop}>
-              <CrescentMark size={20} color={period.accent} />
+              <CrescentMark size={20} color={accent} />
               <Text style={[styles.kicker, { color: colors.textFaint }]}>
                 PRAYER ESTONIA
               </Text>
@@ -87,7 +88,7 @@ export default function TodayScreen() {
               <Text style={[styles.heroLabel, { color: colors.textMuted }]}>
                 NEXT PRAYER
               </Text>
-              <View style={[styles.countdownChip, { backgroundColor: period.accent }]}>
+              <View style={[styles.countdownChip, { backgroundColor: accent }]}>
                 <Text style={[styles.countdownText, { color: colors.textInvert }]}>
                   {formatCountdown(next.minutesUntil)}
                 </Text>
@@ -95,7 +96,7 @@ export default function TodayScreen() {
             </View>
 
             <View style={styles.heroMain}>
-              <PrayerIconFor k={next.key} accent={period.accent} />
+              <PrayerIconFor k={next.key} accent={accent} />
               <Text style={[styles.heroName, { color: colors.text }]}>
                 {PRAYER_META[next.key].label}
               </Text>
@@ -106,7 +107,7 @@ export default function TodayScreen() {
 
             {/* Thin animated progress bar */}
             <View style={[styles.progressTrack, { backgroundColor: colors.surfaceAlt }]}>
-              <ProgressBar progress={progress} accent={period.accent} />
+              <ProgressBar progress={progress} accent={accent} />
             </View>
             <Text style={[styles.progressHint, { color: colors.textFaint }]}>
               {period.label} period · {formatPrayerTime(prevTime % 1440, "round", use24h)} →{" "}
@@ -128,7 +129,7 @@ export default function TodayScreen() {
                   <Text
                     style={[
                       styles.timeCol,
-                      { color: isNext ? period.accent : isPast ? colors.textFaint : colors.text },
+                      { color: isNext ? accent : isPast ? colors.textFaint : colors.text },
                       isNext && { fontWeight: "800" },
                     ]}
                   >
@@ -141,8 +142,8 @@ export default function TodayScreen() {
                       style={[
                         styles.dot,
                         {
-                          backgroundColor: isNext ? period.accent : isPast ? colors.textFaint : colors.border,
-                          borderColor: isNext ? period.accent : colors.border,
+                          backgroundColor: isNext ? accent : isPast ? colors.textFaint : colors.border,
+                          borderColor: isNext ? accent : colors.border,
                         },
                         !isPrayer && styles.dotSmall,
                       ]}
@@ -162,7 +163,7 @@ export default function TodayScreen() {
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                       <Icon
                         size={18}
-                        color={isNext ? period.accent : isPast ? colors.textFaint : colors.textMuted}
+                        color={isNext ? accent : isPast ? colors.textFaint : colors.textMuted}
                       />
                       <Text
                         style={{
@@ -175,7 +176,7 @@ export default function TodayScreen() {
                       </Text>
                     </View>
                     {isNext && (
-                      <Text style={[styles.nextHint, { color: period.accent }]}>
+                      <Text style={[styles.nextHint, { color: accent }]}>
                         UPCOMING
                       </Text>
                     )}
@@ -194,12 +195,12 @@ export default function TodayScreen() {
           {(t.fajr.ruleType !== "angle" || t.isha.ruleType !== "angle") && (
             <View style={styles.notes}>
               {t.fajr.ruleType !== "angle" && (
-                <Note colors={colors} accent={period.accent}>
+                <Note colors={colors} accent={accent}>
                   Fajr uses the high-latitude night-portion rule today
                 </Note>
               )}
               {t.isha.ruleType !== "angle" && (
-                <Note colors={colors} accent={period.accent}>
+                <Note colors={colors} accent={accent}>
                   Isha = Maghrib + {t.isha.minutesAfterMaghrib} min (summer rule)
                 </Note>
               )}
